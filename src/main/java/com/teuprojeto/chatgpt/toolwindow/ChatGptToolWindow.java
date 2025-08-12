@@ -38,9 +38,9 @@ public class ChatGptToolWindow extends SimpleToolWindowPanel {
     private JBScrollPane inputScroll;
     private JBPanel<?> inputWrapper;
 
-    // limites (px) — ajustáveis
-    private final int minInputHeight = JBUI.scale(70);   // ~3 linhas confortáveis
-    private final int maxInputHeight = JBUI.scale(200);  // ~10–12 linhas
+    // limites (px)
+    private final int minInputHeight = JBUI.scale(70);
+    private final int maxInputHeight = JBUI.scale(200);
 
     public ChatGptToolWindow(Project project) {
         super(true, true);
@@ -63,14 +63,14 @@ public class ChatGptToolWindow extends SimpleToolWindowPanel {
         // Scroll do input (sem borda; borda vai no wrapper)
         inputScroll = new JBScrollPane(promptField);
         inputScroll.setHorizontalScrollBarPolicy(ScrollPaneConstants.HORIZONTAL_SCROLLBAR_NEVER);
-        inputScroll.setVerticalScrollBarPolicy(ScrollPaneConstants.VERTICAL_SCROLLBAR_NEVER); // ligamos só se passar do máximo
+        inputScroll.setVerticalScrollBarPolicy(ScrollPaneConstants.VERTICAL_SCROLLBAR_NEVER);
         inputScroll.setBorder(JBUI.Borders.empty());
 
         // Wrapper com contorno + padding (garante borda visível)
         inputWrapper = new JBPanel<>(new BorderLayout());
         inputWrapper.setBorder(JBUI.Borders.compound(
-                JBUI.Borders.customLine(JBColor.blue, 1), // contorno azul
-                JBUI.Borders.empty(6)                     // padding interno
+                JBUI.Borders.customLine(JBColor.blue, 1),
+                JBUI.Borders.empty(6)
         ));
         inputWrapper.add(inputScroll, BorderLayout.CENTER);
 
@@ -206,25 +206,34 @@ public class ChatGptToolWindow extends SimpleToolWindowPanel {
         promptField.setText("");
         autoResizeInput();
 
-        List<ChatGptSettingsState.Message> persisted = ChatGptSettingsState.getInstance().getHistory();
-        List<OpenAiHttp.HistoryMsg> ctx = persisted.stream()
-                .map(m -> new OpenAiHttp.HistoryMsg(
-                        "assistant".equalsIgnoreCase(m.role) ? "assistant" : "user",
-                        m.text == null ? "" : m.text))
-                .collect(Collectors.toList());
+        // ====== Settings para contexto e system prompt ======
+        ChatGptSettingsState st = ChatGptSettingsState.getInstance();
+        final boolean useCtx = st.isUseContext();
+        final int maxChars = st.getMaxContextChars();
+        final String sysPrompt = st.getSystemPrompt();
 
+        // constrói ctx só se for para usar contexto
+        final List<OpenAiHttp.HistoryMsg> ctxFinal =
+                useCtx
+                        ? st.getHistory().stream()
+                        .map(m -> new OpenAiHttp.HistoryMsg(
+                                "assistant".equalsIgnoreCase(m.role) ? "assistant" : "user",
+                                m.text == null ? "" : m.text))
+                        .collect(Collectors.toList())
+                        : java.util.Collections.emptyList();
 
         if (streaming) {
-            StringBuilder acc = new StringBuilder();
+            final StringBuilder accFinal = new StringBuilder();
             ApplicationManager.getApplication().executeOnPooledThread(() -> {
                 try {
                     OpenAiHttp.chatStreamWithHistory(
-                            apiKey, model, ctx, prompt, 0.7,
+                            apiKey, model, ctxFinal, prompt, 0.7,
                             (java.util.function.Consumer<String>) (delta ->
-                                    ApplicationManager.getApplication().invokeLater(() -> appendAssistantDelta(acc, delta))
+                                    ApplicationManager.getApplication().invokeLater(() -> appendAssistantDelta(accFinal, delta))
                             ),
                             (Runnable) () ->
-                                    ApplicationManager.getApplication().invokeLater(() -> appendAssistantDone(acc))
+                                    ApplicationManager.getApplication().invokeLater(() -> appendAssistantDone(accFinal)),
+                            sysPrompt, maxChars
                     );
                 } catch (Exception ex) {
                     ApplicationManager.getApplication().invokeLater(() ->
@@ -234,7 +243,9 @@ public class ChatGptToolWindow extends SimpleToolWindowPanel {
         } else {
             ApplicationManager.getApplication().executeOnPooledThread(() -> {
                 try {
-                    String answer = OpenAiHttp.chatWithHistory(apiKey, model, ctx, prompt, 0.7);
+                    String answer = OpenAiHttp.chatWithHistory(
+                            apiKey, model, ctxFinal, prompt, 0.7, sysPrompt, maxChars
+                    );
                     ApplicationManager.getApplication().invokeLater(() -> appendAssistant(answer));
                 } catch (Exception ex) {
                     ApplicationManager.getApplication().invokeLater(() ->
@@ -245,7 +256,6 @@ public class ChatGptToolWindow extends SimpleToolWindowPanel {
     }
 
     private void appendUser(String text) {
-        // Persistir + render
         ChatGptSettingsState.getInstance().addUser(text);
         conversationArea.append("You: " + text + "\n");
         conversationArea.append("Assistant: ");
@@ -265,7 +275,6 @@ public class ChatGptToolWindow extends SimpleToolWindowPanel {
     }
 
     private void appendAssistantDone(StringBuilder acc) {
-        // fecha a mensagem stream: persistir inteira
         ChatGptSettingsState.getInstance().addAssistant(acc.toString());
         conversationArea.append("\n\n");
         conversationArea.setCaretPosition(conversationArea.getDocument().getLength());
@@ -273,14 +282,12 @@ public class ChatGptToolWindow extends SimpleToolWindowPanel {
 
     private void autoResizeInput() {
         int availWidth = inputWrapper.getWidth() > 0
-                ? inputWrapper.getWidth() - JBUI.scale(12) // empty(6) de cada lado
+                ? inputWrapper.getWidth() - JBUI.scale(12)
                 : inputWrapper.getPreferredSize().width;
         if (availWidth <= 0) return;
 
-        // guarda posição atual do cursor para não o mexer
         final int caretPos = promptField.getCaretPosition();
 
-        // mede altura preferida com a largura disponível
         Dimension oldSize = promptField.getSize();
         promptField.setSize(new Dimension(availWidth, Short.MAX_VALUE));
         Dimension pref = promptField.getPreferredSize();
@@ -309,16 +316,15 @@ public class ChatGptToolWindow extends SimpleToolWindowPanel {
                         : ScrollPaneConstants.VERTICAL_SCROLLBAR_NEVER
         );
 
-        // mantém o cursor visível SEM o mover para o fim
         SwingUtilities.invokeLater(() -> {
             try {
-                Rectangle r = promptField.modelToView2D(Math.min(caretPos, promptField.getDocument().getLength())).getBounds();
+                int safe = Math.min(caretPos, promptField.getDocument().getLength());
+                Rectangle r = promptField.modelToView2D(safe).getBounds();
                 r.y += JBUI.scale(3);
                 promptField.scrollRectToVisible(r);
             } catch (Exception ignore) { }
         });
     }
-
 
     private void notifyUi(String msg, NotificationType type) {
         Notifications.Bus.notify(new Notification("ChatGPT", "ChatGPT IntelliJ Helper", msg, type), project);

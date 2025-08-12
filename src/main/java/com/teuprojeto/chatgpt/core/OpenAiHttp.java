@@ -50,9 +50,16 @@ public final class OpenAiHttp {
 
     // Constrói lista de mensagens com histórico (capado por tamanho),
     // + um system prompt fixo.
-    private static List<Map<String, Object>> buildMessages(List<HistoryMsg> history, String userPrompt) {
-        final String SYSTEM = "Responde em português de Portugal e trata o utilizador por tu.";
-        final int MAX_CHARS = 8000;
+    private static List<Map<String, Object>> buildMessages(
+            List<HistoryMsg> history,
+            String userPrompt,
+            String systemPrompt,
+            int maxChars
+    ) {
+        final String SYSTEM = (systemPrompt == null || systemPrompt.isBlank())
+                ? "Responde em português de Portugal e trata o utilizador por tu."
+                : systemPrompt.trim();
+        final int MAX_CHARS = Math.max(1000, maxChars);
 
         List<Map<String, Object>> msgs = new ArrayList<>();
         msgs.add(msg("system", SYSTEM));
@@ -99,26 +106,21 @@ public final class OpenAiHttp {
     // =================== API: com histórico ===================
 
     public static String chatWithHistory(
-            String apiKey,
-            String model,
-            List<HistoryMsg> history,
-            String userPrompt,
-            double temperature
+            String apiKey, String model,
+            List<HistoryMsg> history, String userPrompt, double temperature,
+            String systemPrompt, int maxContextChars
     ) throws IOException {
-        List<Map<String, Object>> msgs = buildMessages(history, userPrompt);
+        List<Map<String, Object>> msgs = buildMessages(history, userPrompt, systemPrompt, maxContextChars);
         return callChatCompletions(apiKey, model, msgs, temperature);
     }
 
     public static void chatStreamWithHistory(
-            String apiKey,
-            String model,
-            List<HistoryMsg> history,
-            String userPrompt,
-            double temperature,
-            Consumer<String> onDelta,
-            Runnable onDone
+            String apiKey, String model,
+            List<HistoryMsg> history, String userPrompt, double temperature,
+            java.util.function.Consumer<String> onDelta, Runnable onDone,
+            String systemPrompt, int maxContextChars
     ) throws IOException {
-        List<Map<String, Object>> msgs = buildMessages(history, userPrompt);
+        List<Map<String, Object>> msgs = buildMessages(history, userPrompt, systemPrompt, maxContextChars);
         streamChatCompletions(apiKey, model, msgs, temperature, onDelta, onDone);
     }
 
