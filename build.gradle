@@ -1,0 +1,47 @@
+plugins {
+    id 'java'
+    id 'org.jetbrains.intellij.platform' version '2.7.0'
+}
+
+group = 'com.teuprojeto.chatgpt'
+version = '1.0-SNAPSHOT'
+
+repositories {
+    mavenCentral()
+    intellijPlatform { defaultRepositories() }
+}
+
+java {
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(21)
+    }
+}
+
+dependencies {
+    intellijPlatform {
+        // usa a instalação LOCAL do IntelliJ CE 2025.2 (evita downloads)
+        local("C:/Program Files/JetBrains/IntelliJ IDEA Community Edition 2025.2")
+    }
+
+        // Cliente Java do Theokanning (mais simples para integração no plugin)
+        implementation 'com.theokanning.openai-gpt3-java:service:0.18.2'
+
+        // Gson para parse do JSON (já usado pelo Theokanning)
+        implementation 'com.google.code.gson:gson:2.10.1'
+
+
+        // Gson para parse do JSON da resposta HTTP
+        implementation 'com.google.code.gson:gson:2.10.1'
+}
+
+intellijPlatform {
+    // já tens o 'local(...)' nas deps para build/run; aqui é só para o Verifier
+    pluginVerification {
+        ides {
+            // Verifica contra IntelliJ IDEA Community 2025.2 (linha 252)
+            ide("IC-2025.2")
+        }
+    }
+}
+
+tasks.named("instrumentCode").configure { enabled = false }

@@ -1,0 +1,48 @@
+<idea-plugin>
+    <id>com.teuprojeto.chatgpt</id>
+    <name>ChatGPT IntelliJ Helper</name>
+    <version>1.1.0</version>
+    <vendor email="teuemail@dominio.com" url="https://teusite.com">Rui Martins</vendor>
+
+    <description>
+        Integração simples com o ChatGPT: ação rápida a partir do editor e Tool Window
+        com histórico, streaming e input multi-linha.
+    </description>
+
+    <change-notes>
+        1.1.0:
+        - Input multi-linha com auto-crescimento (sem cortar última linha)
+        - Ctrl+Enter para enviar; foco volta ao input
+        - Botão Limpar conversa
+        - Resposta local para data/hora (sem chamar API)
+    </change-notes>
+
+    <depends>com.intellij.modules.platform</depends>
+
+    <extensions defaultExtensionNs="com.intellij">
+        <applicationConfigurable instance="com.teuprojeto.chatgpt.settings.ChatGptSettingsConfigurable"
+                                 displayName="ChatGPT" id="chatgpt.settings" parentId="tools"/>
+        <!-- Tool Window -->
+        <toolWindow id="ChatGPT"
+                    anchor="right"
+                    factoryClass="com.teuprojeto.chatgpt.toolwindow.ChatGptToolWindowFactory"
+                    icon="/icons/chatgpt.svg"
+                    stripeTitle="ChatGPT"/>
+    </extensions>
+
+    <actions>
+        <action id="com.teuprojeto.chatgpt.actions.AskChatGptAction"
+                class="com.teuprojeto.chatgpt.actions.AskChatGptAction"
+                text="ChatGPT: Ask"
+                description="Enviar um prompt ao ChatGPT">
+            <add-to-group group-id="ToolsMenu" anchor="last"/>
+        </action>
+
+        <action id="com.teuprojeto.chatgpt.actions.AskFromSelectionInsertAction"
+                class="com.teuprojeto.chatgpt.actions.AskFromSelectionInsertAction"
+                text="ChatGPT: Ask from Selection &amp; Insert"
+                description="Envia a seleção ao ChatGPT e insere a resposta no editor">
+            <add-to-group group-id="EditorPopupMenu" anchor="last"/>
+        </action>
+    </actions>
+</idea-plugin>

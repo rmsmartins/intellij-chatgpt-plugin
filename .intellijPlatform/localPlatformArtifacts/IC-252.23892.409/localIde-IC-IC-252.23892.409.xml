@@ -1,0 +1,10 @@
+<ivy-module version="2.0">
+  <info organisation="localIde" module="IC" revision="IC-252.23892.409"/>
+  <configurations>
+    <conf name="default" visibility="public"/>
+  </configurations>
+  <publications>
+    <artifact name="Program Files/JetBrains/IntelliJ IDEA Community Edition 2025.2" ext="directory" conf="default"/>
+  </publications>
+  <dependencies/>
+</ivy-module>

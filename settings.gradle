@@ -1,0 +1,10 @@
+pluginManagement {
+    repositories {
+        gradlePluginPortal()
+        mavenCentral()
+        maven { url = 'https://www.jetbrains.com/intellij-repository/releases' }
+        maven { url = 'https://cache-redirector.jetbrains.com/intellij-repository/releases' }
+    }
+}
+
+rootProject.name = 'chatgpt-intellij-helper'
